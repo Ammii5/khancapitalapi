@@ -124,7 +124,9 @@ app.get('/api/candles', (req, res) => {
   const pair = req.query.pair;
   if (!pair) return res.status(400).json({ success: false, error: 'Missing "pair" query param' });
 
-  const url = `${UPSTREAM_BASE}?pair=${encodeURIComponent(pair)}`;
+  const timeframe = req.query.timeframe || 'M1';
+  const count = req.query.count || '300';
+  const url = `${UPSTREAM_BASE}?pair=${encodeURIComponent(pair)}&timeframe=${encodeURIComponent(timeframe)}&count=${encodeURIComponent(count)}`;
   fetchWithRetry(url, MAX_RETRIES, (err, status, body) => {
     if (err) return res.status(502).json({ success: false, error: 'Upstream request failed', detail: err.message });
     res.status(status || 200).type('application/json');
