@@ -5,12 +5,16 @@
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const https = require('https');
 
 const RTDB_HOST = 'tools-1feac-default-rtdb.firebaseio.com';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const clientDist = path.join(__dirname, '..', 'client', 'dist');
+const clientIndex = path.join(clientDist, 'index.html');
+const adminFile = path.join(__dirname, '..', 'admin.html');
 
 const UPSTREAM_BASE = 'https://mrbeaxt.com/Qxapi/qx.php';
 const UPSTREAM_TICK_BASE = 'https://mrbeaxt.com/Qxapi/qx_ticks.php';
@@ -105,12 +109,14 @@ app.delete('/api/db/*', (req, res) => {
   rtdbRequest('DELETE', '/' + nodePath + '.json', null, res);
 });
 
-// Serve React build (production)
-app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
+// Serve the React build when this server is run from the full project.
+// The Vercel deployment is API-only, so its missing client build must not throw ENOENT.
+if (fs.existsSync(clientDist)) app.use(express.static(clientDist));
 
 // Serve admin panel at /admin
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'admin.html'));
+  if (fs.existsSync(adminFile)) return res.sendFile(adminFile);
+  res.status(404).json({ error: 'Admin panel is not included in this API deployment' });
 });
 
 // GET /api/candles?pair=EURUSD
@@ -152,7 +158,8 @@ app.get('/api/tick', (req, res) => {
 
 // All other routes → React app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));
+  if (fs.existsSync(clientIndex)) return res.sendFile(clientIndex);
+  res.status(404).json({ error: 'Khan Capital API is running', endpoints: ['/api/time', '/api/candles', '/api/tick'] });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
