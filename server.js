@@ -20,6 +20,7 @@ const UPSTREAM_BASE = 'https://mrbeaxt.com/Qxapi/qx.php';
 const UPSTREAM_TICK_BASE = 'https://mrbeaxt.com/Qxapi/qx_ticks.php';
 const FALLBACK_MARKETS_BASE = 'https://qxcandledata.beaxtapi.online/api/v1/markets';
 const FALLBACK_TICK_BASE = 'https://qxcandledata.beaxtapi.online/api/v1/tick';
+const FALLBACK_STATUS_BASE = 'https://qxcandledata.beaxtapi.online/api/v1/status';
 const TRIM_CANDLES = 300;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 300;
@@ -155,6 +156,18 @@ app.get('/api/time', (req, res) => {
   res.json({ utc: Date.now() });
 });
 
+// GET /api/status?pair=EURUSD or /api/status?pair=EURUSD_otc
+// Keep the fallback provider server-side so browser CORS never blocks payout reads.
+app.get('/api/status', (req, res) => {
+  const pair = req.query.pair;
+  if (!pair) return res.status(400).json({ success: false, error: 'Missing "pair" query param' });
+
+  fetchWithRetry(`${FALLBACK_STATUS_BASE}?pair=${encodeURIComponent(pair)}`, 0, (err, status, body) => {
+    if (err) return res.status(502).json({ success: false, error: 'Status request failed', detail: err.message });
+    res.status(status || 200).type('application/json').send(body);
+  });
+});
+
 // GET /api/tick?pair=EURUSD or /api/tick?pair=EURUSD_otc
 app.get('/api/tick', (req, res) => {
   const pair = req.query.pair;
@@ -172,7 +185,7 @@ app.get('/api/tick', (req, res) => {
 // All other routes → React app
 app.get('*', (req, res) => {
   if (fs.existsSync(clientIndex)) return res.sendFile(clientIndex);
-  res.status(404).json({ error: 'Khan Capital API is running', endpoints: ['/api/time', '/api/candles', '/api/tick'] });
+  res.status(404).json({ error: 'Khan Capital API is running', endpoints: ['/api/time', '/api/status', '/api/candles', '/api/tick'] });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
