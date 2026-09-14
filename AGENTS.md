@@ -4,7 +4,7 @@ Express API proxy server for the Qx candle/trading data API.
 
 ## Architecture
 - **server.js** — Express server on port 3000. Proxies candle/tick/status requests to upstream APIs (mrbeaxt.com, beaxtapi.online) and proxies CRUD to Firebase Realtime Database. No database or external secrets — all upstream URLs are hardcoded.
-- **candle-worker.js** — Standalone polling worker that fetches candle data and writes it to Firebase RTDB. Not run by default; run with `node candle-worker.js` if needed.
+- **candle-worker.js** — 24/7 polling worker (compose service `candle-worker`) that fetches M1 candles every 10s and writes them to Firebase RTDB at `serverCandles/<pair>`, keeping the latest 60 per pair. Clients read instant chart data via `GET /api/db/serverCandles/<pair>`. Pairs configurable via `CANDLE_PAIRS` env var.
 
 ## Running
 ```

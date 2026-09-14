@@ -12,3 +12,14 @@ services:
       - NODE_ENV=development
     command: sh -c "npm install && node server.js"
     restart: unless-stopped
+
+  candle-worker:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - CANDLE_PAIRS=EURUSD,GBPUSD,USDJPY,USDARS_otc
+      - CANDLE_POLL_MS=10000
+    command: node candle-worker.js
+    restart: unless-stopped
