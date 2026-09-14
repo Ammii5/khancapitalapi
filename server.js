@@ -18,6 +18,8 @@ const adminFile = path.join(__dirname, '..', 'admin.html');
 
 const UPSTREAM_BASE = 'https://mrbeaxt.com/Qxapi/qx.php';
 const UPSTREAM_TICK_BASE = 'https://mrbeaxt.com/Qxapi/qx_ticks.php';
+const FALLBACK_MARKETS_BASE = 'https://qxcandledata.beaxtapi.online/api/v1/markets';
+const FALLBACK_TICK_BASE = 'https://qxcandledata.beaxtapi.online/api/v1/tick';
 const TRIM_CANDLES = 300;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 300;
@@ -39,6 +41,13 @@ function fetchWithRetry(url, retries, callback) {
     } else {
       callback(err, 502, null);
     }
+  });
+}
+
+function fetchPrimaryThenFallback(primaryUrl, fallbackUrl, callback) {
+  fetchWithRetry(primaryUrl, MAX_RETRIES, (err, status, body) => {
+    if (!err && status >= 200 && status < 300) return callback(null, status, body);
+    fetchWithRetry(fallbackUrl, 0, callback);
   });
 }
 
@@ -127,7 +136,8 @@ app.get('/api/candles', (req, res) => {
   const timeframe = req.query.timeframe || 'M1';
   const count = req.query.count || '300';
   const url = `${UPSTREAM_BASE}?pair=${encodeURIComponent(pair)}&timeframe=${encodeURIComponent(timeframe)}&count=${encodeURIComponent(count)}`;
-  fetchWithRetry(url, MAX_RETRIES, (err, status, body) => {
+  const fallbackUrl = `${FALLBACK_MARKETS_BASE}?pair=${encodeURIComponent(pair)}&timeframe=${encodeURIComponent(timeframe)}&count=${encodeURIComponent(count)}`;
+  fetchPrimaryThenFallback(url, fallbackUrl, (err, status, body) => {
     if (err) return res.status(502).json({ success: false, error: 'Upstream request failed', detail: err.message });
     res.status(status || 200).type('application/json');
     try {
@@ -152,7 +162,8 @@ app.get('/api/tick', (req, res) => {
 
   // OTC pairs use the same tick endpoint with _otc suffix
   const url = `${UPSTREAM_TICK_BASE}?pair=${encodeURIComponent(pair)}`;
-  fetchWithRetry(url, MAX_RETRIES, (err, status, body) => {
+  const fallbackUrl = `${FALLBACK_TICK_BASE}?pair=${encodeURIComponent(pair)}`;
+  fetchPrimaryThenFallback(url, fallbackUrl, (err, status, body) => {
     if (err) return res.status(502).json({ success: false, error: 'Upstream request failed', detail: err.message });
     res.status(status || 200).type('application/json').send(body);
   });
